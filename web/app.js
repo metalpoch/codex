@@ -12,9 +12,61 @@ const seekFlip = document.querySelector("#seekFlip");
 const seekStack = document.querySelector("#seekStack");
 const seekProgress = document.querySelector("#seekProgress");
 const seekFall = document.querySelector("#seekFall");
+const seekBodyLeft = document.querySelector("#seekBodyLeft");
+const seekBodyRight = document.querySelector("#seekBodyRight");
+const seekBodyFlip = document.querySelector("#seekBodyFlip");
 
 const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const TOTAL_FOLIOS = 537;
+
+const INK_GLYPHS = ["ᚠ", "ᚢ", "ᚦ", "ᚨ", "ᚱ", "ᚲ", "ᚷ", "ᚹ", "ᚺ", "ᚾ", "ᛁ", "ᛃ", "ᛇ", "ᛈ", "ᛉ", "ᛊ", "ᛏ", "ᛒ", "ᛖ", "ᛗ", "ᛚ", "ᛞ", "ᛟ", "✶", "☽", "✥", "⚚", "☤"];
+const SEAL_SVG = '<svg viewBox="0 0 40 40" fill="none"><circle cx="20" cy="20" r="17.2" stroke="currentColor" stroke-width="1.1"/><path d="M20 5.5 26.9 25.8 8.6 13.2h22.8L13.1 25.8Z" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/></svg>';
+
+function randomBetween(min, max) {
+  return min + Math.random() * (max - min);
+}
+
+function randomizePage(body) {
+  body.replaceChildren();
+  const add = (className, style) => {
+    const el = document.createElement("span");
+    el.className = className;
+    Object.assign(el.style, style);
+    body.append(el);
+    return el;
+  };
+  add("seek-rubric", { top: `${randomBetween(9, 14).toFixed(1)}%`, left: "11%", width: `${randomBetween(26, 48).toFixed(1)}%` });
+  let top = randomBetween(22, 27);
+  while (top < randomBetween(74, 84)) {
+    const indent = randomBetween(9, 12);
+    const width = top > 68 ? randomBetween(42, 74) : randomBetween(58, 96 - indent);
+    add("seek-line", { top: `${top.toFixed(1)}%`, left: `${indent.toFixed(1)}%`, width: `${width.toFixed(1)}%` });
+    top += randomBetween(4.4, 6.1);
+  }
+  if (Math.random() < 0.4) {
+    add("seek-ink", {
+      top: `${randomBetween(30, 58).toFixed(1)}%`,
+      left: `${randomBetween(13, 22).toFixed(1)}%`,
+      fontSize: `${randomBetween(11, 15).toFixed(1)}px`,
+    }).textContent = INK_GLYPHS[Math.floor(Math.random() * INK_GLYPHS.length)];
+  }
+  if (Math.random() < 0.18) {
+    add("seek-ink", {
+      top: `${randomBetween(48, 70).toFixed(1)}%`,
+      right: `${randomBetween(12, 20).toFixed(1)}%`,
+      fontSize: `${randomBetween(9, 12).toFixed(1)}px`,
+    }).textContent = INK_GLYPHS[Math.floor(Math.random() * INK_GLYPHS.length)];
+  }
+  if (Math.random() < 0.22) {
+    const seal = add("seek-seal", {
+      top: `${randomBetween(42, 62).toFixed(1)}%`,
+      right: `${randomBetween(10, 17).toFixed(1)}%`,
+      transform: `rotate(${randomBetween(-28, 28).toFixed(1)}deg)`,
+    });
+    seal.innerHTML = SEAL_SVG;
+  }
+  add("seek-folio", {}).textContent = String(1 + Math.floor(Math.random() * TOTAL_FOLIOS));
+}
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -160,7 +212,9 @@ function openSeek() {
   seekOverlay.classList.add("is-open");
   document.body.classList.add("is-seeking");
   updateSeekProgress();
-  seekStack.style.setProperty("--stack-scale", "1");
+  seekStack.style.setProperty("--stack", "1");
+  randomizePage(seekBodyLeft);
+  randomizePage(seekBodyRight);
   if (reducedMotion) return;
   scheduleFlip(520);
   seek.fallTimer = window.setInterval(spawnFallingPage, 780);
@@ -180,7 +234,8 @@ function runFlip() {
   seek.page = Math.min(TOTAL_FOLIOS, seek.page + 1 + Math.floor(Math.random() * 3));
   seek.flips += 1;
   updateSeekProgress();
-  seekStack.style.setProperty("--stack-scale", String(Math.max(0.62, 1 - seek.flips * 0.05)));
+  seekStack.style.setProperty("--stack", String(Math.max(0.08, 1 - seek.flips * 0.055)));
+  seekBodyFlip.innerHTML = seekBodyRight.innerHTML;
   const duration = 105 + Math.random() * 85;
   seekFlip.style.setProperty("--flip-duration", `${Math.round(duration)}ms`);
   seekFlip.classList.remove("is-flipping");
@@ -188,6 +243,8 @@ function runFlip() {
   seekFlip.classList.add("is-flipping");
   seek.flipTimer = window.setTimeout(() => {
     seekFlip.classList.remove("is-flipping");
+    seekBodyLeft.innerHTML = seekBodyFlip.innerHTML;
+    randomizePage(seekBodyRight);
     scheduleFlip(15 + Math.random() * 55);
   }, duration);
 }

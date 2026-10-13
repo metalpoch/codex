@@ -93,15 +93,16 @@
         <div class="seek-book" aria-hidden="true">
           <span class="seek-shadow"></span>
           <div class="seek-side seek-side-left">
-            <span class="seek-rubric"></span>
-            <span class="seek-lines"></span>
-            <span class="seek-folio"></span>
+            <div class="seek-page-body" id="seekBodyLeft"></div>
           </div>
           <div class="seek-spine"></div>
-          <div class="seek-side seek-side-right" id="seekStack">
-            <span class="seek-edge"></span>
+          <div class="seek-side seek-side-right">
+            <div class="seek-page-body" id="seekBodyRight"></div>
+            <div class="seek-stack" id="seekStack"></div>
           </div>
-          <span class="seek-flip" id="seekFlip"></span>
+          <div class="seek-flip" id="seekFlip">
+            <div class="seek-page-body" id="seekBodyFlip"></div>
+          </div>
         </div>
         <p class="seek-caption"><span class="seek-sigil">✥</span> Consultando los archivos de la noche…</p>
         <p class="seek-progress" id="seekProgress">HOJA 1 / 537</p>
