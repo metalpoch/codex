@@ -13,6 +13,7 @@ const seekProgress = document.querySelector("#seekProgress");
 const seekFall = document.querySelector("#seekFall");
 const seekSheets = document.querySelector("#seekSheets");
 const seekTurnShadow = document.querySelector("#seekTurnShadow");
+const seekFan = document.querySelector("#seekFan");
 const seekBodyLeft = document.querySelector("#seekBodyLeft");
 const seekBodyRight = document.querySelector("#seekBodyRight");
 
@@ -361,6 +362,25 @@ const SHEET_COUNT = 5;
 const seek = { active: false, startedAt: 0, page: 1, turns: 0, cursor: 0, turnTimer: 0, fallTimer: 0 };
 const sheets = [];
 
+const FAN_POSES = [
+  { side: "from-right", ry: -78, z: -16, rz: 2.4 },
+  { side: "from-right", ry: -56, z: -10, rz: 1.5 },
+  { side: "from-right", ry: -34, z: -4, rz: .8 },
+  { side: "from-left", ry: 80, z: -18, rz: -2.6 },
+  { side: "from-left", ry: 58, z: -11, rz: -1.6 },
+  { side: "from-left", ry: 36, z: -5, rz: -.8 },
+];
+
+function ensureFan() {
+  if (seekFan.childElementCount) return;
+  for (const pose of FAN_POSES) {
+    const page = document.createElement("div");
+    page.className = `seek-fan-page ${pose.side}`;
+    page.style.transform = `rotateY(${pose.ry}deg) rotateZ(${pose.rz}deg) translateZ(${pose.z}px)`;
+    seekFan.append(page);
+  }
+}
+
 function ensureSheets() {
   if (sheets.length) return;
   for (let i = 0; i < SHEET_COUNT; i += 1) {
@@ -397,6 +417,7 @@ function openSeek() {
   seekStack.style.setProperty("--stack", "1");
   randomizePage(seekBodyLeft);
   randomizePage(seekBodyRight);
+  ensureFan();
   if (reducedMotion) return;
   ensureSheets();
   seek.turnTimer = window.setTimeout(runTurn, 480);
