@@ -60,6 +60,9 @@ var disciplineSectionNames = []string{
 	"Necromancia", "Obtenebración", "Ofuscación", "Potencia", "Presencia", "Protean", "Quimerismo",
 	"Serpentis", "Taumaturgia", "Vicisitud", "Viscerática", "Mytherceria", "Melpominee", "Valeren",
 	"Obeah", "Quietus", "Temporis", "Koldunismo",
+	// Líneas de sangre del Capítulo Diez (tal y como las nombra este libro)
+	"Bardo", "Daimoinon", "Hechicería Assamita", "Hechicería Koldúnica", "Melpómene",
+	"Ogham", "Sanguinus", "Spiritus", "Tanatosis", "Vuelo",
 }
 
 type config struct {
@@ -822,15 +825,31 @@ func truncateRunes(value string, limit int) string {
 func thaumaturgyCatalogSource(documents []chromaDocument) (source, bool) {
 	bestScore := 0
 	var best source
-	for _, document := range documents {
+	// la entrada del índice de Taumaturgia («Sendas: … rituales, 229-240») puede
+	// quedar partida entre dos fragmentos: se mira junto a sus vecinos
+	for i, document := range documents {
 		text := normalizeWords(document.content)
-		if !strings.Contains(text, "taumaturgia") || !strings.Contains(strings.ToLower(document.content), "sendas:") || !strings.Contains(text, "rituales") || !pageRangePattern.MatchString(document.content) {
+		if !strings.Contains(text, "taumaturgia") || !pageRangePattern.MatchString(document.content) {
+			continue
+		}
+		window := document.content
+		if i > 0 {
+			window = documents[i-1].content + "\n" + window
+		}
+		if i+1 < len(documents) {
+			window += "\n" + documents[i+1].content
+		}
+		if !strings.Contains(strings.ToLower(window), "sendas:") || !strings.Contains(normalizeWords(window), "rituales") {
 			continue
 		}
 		score := strings.Count(text, "senda") + strings.Count(text, "taumaturgia") + strings.Count(text, "rituales")
 		if score > bestScore {
 			bestScore = score
-			best = source{Excerpt: truncateExcerpt(document.content), Similarity: 0.5}
+			excerpt := window
+			if position := strings.Index(strings.ToLower(excerpt), "taumaturgia"); position > 0 {
+				excerpt = excerpt[position:]
+			}
+			best = source{Excerpt: truncateExcerpt(excerpt), Similarity: 0.5}
 		}
 	}
 	return best, bestScore > 0
@@ -1087,15 +1106,28 @@ func truncateExcerpt(content string) string {
 	return excerpt
 }
 
+// documentChapter devuelve el capítulo que encabeza un fragmento («Capítulo
+// Cuatro: Disciplinas · Animalismo · pág. 128»). Devuelve "" si no reconoce la
+// cabecera (p. ej. la base de datos antigua) y en ese caso no se acota nada.
+func documentChapter(content string) string {
+	first, _, _ := strings.Cut(content, "\n")
+	parts := strings.SplitN(first, " · ", 2)
+	if len(parts) < 2 {
+		return ""
+	}
+	return strings.TrimSpace(parts[0])
+}
+
 func orderedSectionContext(question string, documents []chromaDocument) string {
 	type heading struct {
 		position int
 		title    string
+		path     bool
 	}
 	var headings []heading
 	for position, document := range documents {
 		for _, match := range sendaHeadingPattern.FindAllStringSubmatch(document.content, -1) {
-			headings = append(headings, heading{position: position, title: "Senda de " + strings.TrimSpace(match[1])})
+			headings = append(headings, heading{position: position, title: "Senda de " + strings.TrimSpace(match[1]), path: true})
 		}
 		for _, line := range strings.Split(document.content, "\n") {
 			lineTitle := normalizeWords(strings.TrimSpace(line))
@@ -1109,6 +1141,7 @@ func orderedSectionContext(question string, documents []chromaDocument) string {
 	if len(headings) == 0 {
 		return ""
 	}
+	sort.SliceStable(headings, func(i, j int) bool { return headings[i].position < headings[j].position })
 
 	questionWords := contentWords(question)
 	selected := -1
@@ -1131,9 +1164,15 @@ func orderedSectionContext(question string, documents []chromaDocument) string {
 
 	sectionTitle := headings[selected].title
 	normalizedTitle := normalizeWords(sectionTitle)
+	// una Disciplina abarca también sus Sendas: sólo la corta la siguiente
+	// Disciplina. Una Senda sí la corta otra Senda o Disciplina.
+	selectedIsPath := headings[selected].path
 	start := headings[selected].position
 	end := len(documents)
 	for _, candidate := range headings[selected+1:] {
+		if candidate.path && !selectedIsPath {
+			continue
+		}
 		if normalizeWords(candidate.title) != normalizedTitle {
 			end = candidate.position
 			break
@@ -1143,7 +1182,15 @@ func orderedSectionContext(question string, documents []chromaDocument) string {
 	section := orderedSection{name: sectionTitle}
 	currentLevel := 1
 	seen := make(map[string]bool)
+	startChapter := documentChapter(documents[start].content)
 	for position := start; position < end; position++ {
+		// sin siguiente línea de Disciplina que corte la sección (Vicisitud es
+		// la última del Capítulo Cuatro): el cambio de capítulo la delimita
+		if position > start {
+			if chapter := documentChapter(documents[position].content); chapter != "" && startChapter != "" && chapter != startChapter {
+				break
+			}
+		}
 		for _, line := range strings.Split(documents[position].content, "\n") {
 			if match := levelHeadingPattern.FindStringSubmatch(line); len(match) == 3 && normalizeWords(match[1]) == normalizedTitle {
 				if level, err := strconv.Atoi(match[2]); err == nil {
