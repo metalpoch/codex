@@ -1,4 +1,5 @@
-/codex_data/
+/codex_data/*
+!/codex_data/chromem.tar.gz
 /codex
 /v20_db/old_backup/
 /v20_db_build/

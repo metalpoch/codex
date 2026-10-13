@@ -19,6 +19,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/gofiber/fiber/v3"
@@ -87,6 +88,7 @@ type appState struct {
 	documentPositions map[string]int
 	pathVectorsMu     sync.Mutex
 	pathVectors       map[string][]float32
+	ready             atomic.Bool
 }
 
 type searchRequest struct {
@@ -150,7 +152,7 @@ func main() {
 	}
 
 	cfg := loadConfig()
-	state, err := newAppState(cfg)
+	state, err := openAppState(cfg)
 	if err != nil {
 		log.Fatalf("No se pudo preparar Codex: %v", err)
 	}
@@ -190,11 +192,21 @@ func main() {
 		return c.Send(script)
 	})
 	app.Get("/api/health", func(c fiber.Ctx) error {
+		if !state.ready.Load() {
+			return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"status": "indexing", "documents": 0})
+		}
 		return c.JSON(fiber.Map{"status": "ok", "documents": state.collection.Count()})
 	})
 	app.Post("/api/search", state.search)
 
-	log.Printf("Codex escucha en http://localhost:%s · %d fragmentos indexados", cfg.port, state.collection.Count())
+	go func() {
+		if err := state.importIndex(); err != nil {
+			log.Fatalf("No se pudo indexar el archivo: %v", err)
+		}
+		log.Printf("Índice listo: %d fragmentos", state.collection.Count())
+	}()
+
+	log.Printf("Codex escuchando en http://localhost:%s · el índice se prepara en segundo plano", cfg.port)
 	log.Fatal(app.Listen(":" + cfg.port))
 }
 
@@ -214,6 +226,17 @@ func loadConfig() config {
 }
 
 func newAppState(cfg config) (*appState, error) {
+	state, err := openAppState(cfg)
+	if err != nil {
+		return nil, err
+	}
+	if err := state.importIndex(); err != nil {
+		return nil, err
+	}
+	return state, nil
+}
+
+func openAppState(cfg config) (*appState, error) {
 	if _, err := os.Stat(cfg.chromaPath); err != nil {
 		return nil, fmt.Errorf("no se encuentra la base ChromaDB en %q: %w", cfg.chromaPath, err)
 	}
@@ -236,9 +259,6 @@ func newAppState(cfg config) (*appState, error) {
 	if err != nil {
 		return nil, fmt.Errorf("no se pudieron leer los textos de ChromaDB: %w", err)
 	}
-	if err := importChromaDocuments(sourceDocuments, collection, cfg.embedModel); err != nil {
-		return nil, err
-	}
 	documentPositions := make(map[string]int, len(sourceDocuments))
 	for position, document := range sourceDocuments {
 		documentPositions[document.id] = position
@@ -253,6 +273,14 @@ func newAppState(cfg config) (*appState, error) {
 		documentPositions: documentPositions,
 		pathVectors:       make(map[string][]float32),
 	}, nil
+}
+
+func (s *appState) importIndex() error {
+	if err := importChromaDocuments(s.sourceDocuments, s.collection, s.config.embedModel); err != nil {
+		return err
+	}
+	s.ready.Store(true)
+	return nil
 }
 
 func newEmbeddingFunc(baseURL, apiKey, model string, client *http.Client) chromem.EmbeddingFunc {
@@ -392,6 +420,9 @@ func readChromaDocuments(path string) ([]chromaDocument, error) {
 }
 
 func (s *appState) search(c fiber.Ctx) error {
+	if !s.ready.Load() {
+		return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"error": "El archivo aún se está indexando. Prueba de nuevo en unos minutos."})
+	}
 	var request searchRequest
 	if err := json.Unmarshal(c.Body(), &request); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Envía una pregunta válida."})

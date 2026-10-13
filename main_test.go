@@ -295,6 +295,61 @@ func TestSearchUsesRetrievedManualContext(t *testing.T) {
 	}
 }
 
+func TestSearchWhileIndexingReturnsServiceUnavailable(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "chroma.sqlite3")
+	createTestChromaDB(t, dbPath, "En V20, Percepción del Aura es un Poder de Auspex 2.")
+	state, err := openAppState(config{
+		chromaPath:    dbPath,
+		chromemPath:   filepath.Join(t.TempDir(), "chromem"),
+		embedURL:      "http://127.0.0.1:1/v1",
+		embedModel:    "test-embedding-model",
+		minSimilarity: 0.22,
+	})
+	if err != nil {
+		t.Fatalf("openAppState() error = %v", err)
+	}
+	app := fiber.New()
+	app.Get("/api/health", func(c fiber.Ctx) error {
+		if !state.ready.Load() {
+			return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"status": "indexing", "documents": 0})
+		}
+		return c.JSON(fiber.Map{"status": "ok", "documents": state.collection.Count()})
+	})
+	app.Post("/api/search", state.search)
+
+	search := httptest.NewRequest(http.MethodPost, "/api/search", strings.NewReader(`{"question":"¿Qué es Percepción del Aura?"}`))
+	search.Header.Set("Content-Type", "application/json")
+	response, err := app.Test(search)
+	if err != nil {
+		t.Fatalf("app.Test() error = %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusServiceUnavailable {
+		t.Fatalf("search status = %d, want %d", response.StatusCode, fiber.StatusServiceUnavailable)
+	}
+
+	health, err := app.Test(httptest.NewRequest(http.MethodGet, "/api/health", nil))
+	if err != nil {
+		t.Fatalf("app.Test() error = %v", err)
+	}
+	defer health.Body.Close()
+	if health.StatusCode != http.StatusServiceUnavailable {
+		t.Fatalf("health status = %d, want %d", health.StatusCode, fiber.StatusServiceUnavailable)
+	}
+
+	if err := state.importIndex(); err != nil {
+		t.Fatalf("importIndex() error = %v", err)
+	}
+	ready, err := app.Test(httptest.NewRequest(http.MethodGet, "/api/health", nil))
+	if err != nil {
+		t.Fatalf("app.Test() error = %v", err)
+	}
+	defer ready.Body.Close()
+	if ready.StatusCode != http.StatusOK {
+		t.Fatalf("health status after import = %d, want %d", ready.StatusCode, http.StatusOK)
+	}
+}
+
 func TestEmbeddingEndpointRejectsHTMLResponse(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/html")

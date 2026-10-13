@@ -1,0 +1,12 @@
+.git
+.gitignore
+.codex
+codex_data/*
+!codex_data/chromem.tar.gz
+v20_db/old_backup
+v20_db_build
+mocks
+tools
+README.md
+.env
+.env.*
