@@ -36,7 +36,7 @@ const (
 	minSearchableRunes = 60
 )
 
-//go:embed web/index.html web/app.css web/app.js
+//go:embed web/index.html web/app.css web/app.js web/favicon.svg
 var web embed.FS
 
 var (
@@ -167,11 +167,19 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	favicon, err := web.ReadFile("web/favicon.svg")
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	app := fiber.New(fiber.Config{AppName: "Codex · V20"})
 	app.Get("/", func(c fiber.Ctx) error {
 		c.Type("html", "utf-8")
 		return c.Send(index)
+	})
+	app.Get("/favicon.svg", func(c fiber.Ctx) error {
+		c.Type("svg", "utf-8")
+		return c.Send(favicon)
 	})
 	app.Get("/app.css", func(c fiber.Ctx) error {
 		c.Type("css", "utf-8")

@@ -1,19 +1,16 @@
 const form = document.querySelector("#searchForm");
 const input = document.querySelector("#question");
 const button = form.querySelector("button[type=submit]");
-const answerArea = document.querySelector("#answerArea");
-const answerText = document.querySelector("#answerText");
 const errorMessage = document.querySelector("#errorMessage");
-const sourcesDetails = document.querySelector("#sourcesDetails");
-const sourceList = document.querySelector("#sourceList");
-const sourceCount = document.querySelector("#sourceCount");
+const scriptFeed = document.querySelector("#scriptFeed");
+const scriptEmpty = document.querySelector("#scriptEmpty");
+const scriptCount = document.querySelector("#scriptCount");
 const seekOverlay = document.querySelector("#seekOverlay");
 const seekStack = document.querySelector("#seekStack");
 const seekProgress = document.querySelector("#seekProgress");
 const seekFall = document.querySelector("#seekFall");
 const seekSheets = document.querySelector("#seekSheets");
 const seekTurnShadow = document.querySelector("#seekTurnShadow");
-const seekFan = document.querySelector("#seekFan");
 const seekBodyLeft = document.querySelector("#seekBodyLeft");
 const seekBodyRight = document.querySelector("#seekBodyRight");
 
@@ -227,17 +224,87 @@ function randomizePage(body) {
   addPos("seek-folio", {}).textContent = String(1 + Math.floor(Math.random() * TOTAL_FOLIOS));
 }
 
-form.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const question = input.value.trim();
-  if (!question) return;
+// --- Scriptorium: la respuesta se escribe -----------------------------------
 
+function buildEntry(question) {
+  scriptEmpty.hidden = true;
+  const entry = document.createElement("article");
+  entry.className = "entry is-pending";
+  entry.innerHTML = `
+    <header class="entry-head">
+      <span class="entry-mark" aria-hidden="true">✦</span>
+      <span class="entry-question"></span>
+    </header>
+    <div class="entry-copy">El erudito hojea el archivo…</div>
+    <button class="entry-skip" type="button" hidden>Mostrar completa</button>
+    <details class="sources" hidden>
+      <summary><span>Fragmentos consultados</span><span class="source-count"></span></summary>
+      <div class="source-list"></div>
+    </details>`;
+  entry.querySelector(".entry-question").textContent = question;
+  scriptFeed.prepend(entry);
+  const total = scriptFeed.childElementCount;
+  scriptCount.textContent = total ? `· ${total} ${total === 1 ? "CONSULTA" : "CONSULTAS"}` : "";
+  return entry;
+}
+
+function fillSources(entry, sources) {
+  const details = entry.querySelector(".sources");
+  const list = entry.querySelector(".source-list");
+  const count = entry.querySelector(".source-count");
+  list.replaceChildren();
+  for (const source of sources) {
+    const item = document.createElement("p");
+    item.className = "source-excerpt";
+    item.append(document.createTextNode(source.excerpt));
+    const score = document.createElement("span");
+    score.className = "source-score";
+    score.textContent = `RELEVANCIA · ${Math.round(source.similarity * 100)}%`;
+    item.append(score);
+    list.append(item);
+  }
+  count.textContent = sources.length ? `· ${sources.length}` : "";
+  details.hidden = sources.length === 0;
+}
+
+function streamEntry(entry, fullText) {
+  const copy = entry.querySelector(".entry-copy");
+  const skip = entry.querySelector(".entry-skip");
+  entry.classList.remove("is-pending");
+  if (reducedMotion) {
+    copy.innerHTML = renderMarkdown(fullText);
+    return Promise.resolve();
+  }
+  skip.hidden = false;
+  return new Promise((resolve) => {
+    const parts = String(fullText).split(/(\s+)/);
+    const batch = fullText.length > 1100 ? 5 : fullText.length > 500 ? 3 : 2;
+    let index = 0;
+    let shown = "";
+    const finish = () => {
+      copy.innerHTML = renderMarkdown(fullText);
+      skip.hidden = true;
+      skip.removeEventListener("click", onStop);
+      resolve();
+    };
+    const onStop = () => { finish(); };
+    skip.addEventListener("click", onStop);
+    const tick = () => {
+      for (let i = 0; i < batch && index < parts.length; i += 1, index += 1) shown += parts[index];
+      copy.innerHTML = renderMarkdown(shown) + '<span class="entry-caret" aria-hidden="true">✒</span>';
+      if (index >= parts.length) return finish();
+      window.setTimeout(tick, 55);
+    };
+    window.setTimeout(tick, 140);
+  });
+}
+
+async function runQuery(question) {
+  const entry = buildEntry(question);
+  const copy = entry.querySelector(".entry-copy");
   button.disabled = true;
-  answerArea.hidden = true;
   errorMessage.hidden = true;
-  sourcesDetails.open = false;
   openSeek();
-
   try {
     const response = await fetch("/api/search", {
       method: "POST",
@@ -246,38 +313,26 @@ form.addEventListener("submit", async (event) => {
     });
     const payload = await response.json();
     if (!response.ok) throw new Error(payload.error || "No se pudo consultar el archivo.");
-
-    answerText.innerHTML = renderMarkdown(payload.answer);
-    sourceList.replaceChildren();
-    const sources = payload.sources || [];
-    for (const source of sources) {
-      const item = document.createElement("p");
-      item.className = "source-excerpt";
-      item.append(document.createTextNode(source.excerpt));
-      const score = document.createElement("span");
-      score.className = "source-score";
-      score.textContent = `RELEVANCIA · ${Math.round(source.similarity * 100)}%`;
-      item.append(score);
-      sourceList.append(item);
-    }
-    sourceCount.textContent = sources.length ? `· ${sources.length}` : "";
-    sourcesDetails.hidden = sources.length === 0;
-    answerArea.hidden = false;
-    answerArea.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    await closeSeek();
+    await streamEntry(entry, payload.answer);
+    fillSources(entry, payload.sources || []);
   } catch (error) {
+    await closeSeek();
+    entry.classList.remove("is-pending");
+    entry.classList.add("is-error");
+    copy.textContent = error.message;
     errorMessage.textContent = error.message;
     errorMessage.hidden = false;
   } finally {
-    await closeSeek();
     button.disabled = false;
   }
-});
+}
 
-document.querySelectorAll("[data-question]").forEach((suggestion) => {
-  suggestion.addEventListener("click", () => {
-    input.value = suggestion.dataset.question;
-    form.requestSubmit();
-  });
+form.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const question = input.value.trim();
+  if (!question) return;
+  runQuery(question);
 });
 
 // --- Respuesta en markdown -------------------------------------------------
@@ -362,25 +417,6 @@ const SHEET_COUNT = 5;
 const seek = { active: false, startedAt: 0, page: 1, turns: 0, cursor: 0, turnTimer: 0, fallTimer: 0 };
 const sheets = [];
 
-const FAN_POSES = [
-  { side: "from-right", ry: -78, z: -16, rz: 2.4 },
-  { side: "from-right", ry: -56, z: -10, rz: 1.5 },
-  { side: "from-right", ry: -34, z: -4, rz: .8 },
-  { side: "from-left", ry: 80, z: -18, rz: -2.6 },
-  { side: "from-left", ry: 58, z: -11, rz: -1.6 },
-  { side: "from-left", ry: 36, z: -5, rz: -.8 },
-];
-
-function ensureFan() {
-  if (seekFan.childElementCount) return;
-  for (const pose of FAN_POSES) {
-    const page = document.createElement("div");
-    page.className = `seek-fan-page ${pose.side}`;
-    page.style.transform = `rotateY(${pose.ry}deg) rotateZ(${pose.rz}deg) translateZ(${pose.z}px)`;
-    seekFan.append(page);
-  }
-}
-
 function ensureSheets() {
   if (sheets.length) return;
   for (let i = 0; i < SHEET_COUNT; i += 1) {
@@ -391,7 +427,9 @@ function ensureSheets() {
     turn.className = "seek-sheet-turn";
     const body = document.createElement("div");
     body.className = "seek-page-body";
-    turn.append(body);
+    const cast = document.createElement("div");
+    cast.className = "seek-sheet-cast";
+    turn.append(body, cast);
     sheet.append(turn);
     seekSheets.append(sheet);
     const entry = { turn, body };
@@ -417,7 +455,6 @@ function openSeek() {
   seekStack.style.setProperty("--stack", "1");
   randomizePage(seekBodyLeft);
   randomizePage(seekBodyRight);
-  ensureFan();
   if (reducedMotion) return;
   ensureSheets();
   seek.turnTimer = window.setTimeout(runTurn, 480);
@@ -438,8 +475,7 @@ function runTurn() {
   updateSeekProgress();
   seekStack.style.setProperty("--stack", String(Math.max(0.06, 1 - seek.turns * 0.05)));
   sheet.body.innerHTML = seekBodyRight.innerHTML;
-  const duration = 250 + Math.random() * 120;
-  const durationMs = `${Math.round(duration)}ms`;
+  const durationMs = `${Math.round(250 + Math.random() * 120)}ms`;
   sheet.turn.style.setProperty("--turn-duration", durationMs);
   sheet.turn.classList.remove("is-turning");
   void sheet.turn.offsetWidth;
@@ -471,7 +507,7 @@ async function closeSeek() {
   for (const sheet of sheets) sheet.turn.classList.remove("is-turning");
   seekTurnShadow.classList.remove("is-turning");
   const elapsed = performance.now() - seek.startedAt;
-  const remaining = 1600 - elapsed;
+  const remaining = 1300 - elapsed;
   if (remaining > 0) await new Promise((resolve) => setTimeout(resolve, remaining));
   seekOverlay.classList.remove("is-open");
   seekOverlay.classList.add("is-closing");
