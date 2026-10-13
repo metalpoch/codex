@@ -314,15 +314,28 @@ body.is-seeking { overflow: hidden; }
 .seek-book {
   position: relative;
   width: min(82vw, 430px);
-  aspect-ratio: 1.42;
+  aspect-ratio: 1.2;
+  transform: rotateX(36deg) rotateZ(-1.4deg);
   transform-style: preserve-3d;
-  filter: drop-shadow(0 34px 44px rgba(0,0,0,.55));
+  filter: drop-shadow(0 22px 30px rgba(0,0,0,.5));
 }
 .seek-overlay.is-open .seek-book { animation: seek-book-open .72s cubic-bezier(.22,.75,.2,1) both; }
 
 @keyframes seek-book-open {
-  from { opacity: 0; transform: rotateY(-94deg) scale(.93); }
-  to { opacity: 1; transform: rotateY(0deg) scale(1); }
+  from { opacity: 0; transform: rotateX(36deg) rotateZ(-1.4deg) rotateY(-94deg) scale(.93); }
+  to { opacity: 1; transform: rotateX(36deg) rotateZ(-1.4deg) rotateY(0deg) scale(1); }
+}
+
+.seek-shadow {
+  position: absolute;
+  top: 97%;
+  left: 3%;
+  width: 94%;
+  height: 15%;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(0,0,0,.66), rgba(0,0,0,.28) 52%, transparent 72%);
+  filter: blur(13px);
+  transform: translateZ(-1px);
 }
 
 .seek-side {

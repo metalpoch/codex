@@ -181,14 +181,14 @@ function runFlip() {
   seek.flips += 1;
   updateSeekProgress();
   seekStack.style.setProperty("--stack-scale", String(Math.max(0.62, 1 - seek.flips * 0.05)));
-  const duration = 185 + Math.random() * 165;
+  const duration = 105 + Math.random() * 85;
   seekFlip.style.setProperty("--flip-duration", `${Math.round(duration)}ms`);
   seekFlip.classList.remove("is-flipping");
   void seekFlip.offsetWidth;
   seekFlip.classList.add("is-flipping");
   seek.flipTimer = window.setTimeout(() => {
     seekFlip.classList.remove("is-flipping");
-    scheduleFlip(35 + Math.random() * 130);
+    scheduleFlip(15 + Math.random() * 55);
   }, duration);
 }
 
@@ -199,7 +199,7 @@ function spawnFallingPage() {
   page.style.left = `${8 + Math.random() * 82}%`;
   page.style.setProperty("--fall-x", `${Math.round((Math.random() * 2 - 1) * 130)}px`);
   page.style.setProperty("--fall-spin", `${Math.round((Math.random() * 2 - 1) * 320)}deg`);
-  page.style.setProperty("--fall-duration", `${(3.4 + Math.random() * 2.8).toFixed(2)}s`);
+  page.style.setProperty("--fall-duration", `${(2.3 + Math.random() * 1.9).toFixed(2)}s`);
   page.style.setProperty("--fall-delay", `${(Math.random() * 0.35).toFixed(2)}s`);
   page.addEventListener("animationend", () => page.remove(), { once: true });
   seekFall.append(page);
