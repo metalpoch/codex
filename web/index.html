@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#100b0d">
+    <meta name="description" content="Un erudito de la Camarilla responde tus preguntas sobre Vampiro: La Mascarada V20.">
+    <title>Codex — El saber de la noche</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/app.css">
+    <script src="/app.js" defer></script>
+  </head>
+  <body>
+    <div class="grain" aria-hidden="true"></div>
+    <div class="ambient-glow" aria-hidden="true"></div>
+    <canvas class="blood-sea" id="bloodSea" aria-hidden="true"></canvas>
+
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="Codex, inicio">
+        <span class="brand-mark" aria-hidden="true">✳</span>
+        <span>CODEX</span>
+      </a>
+      <span class="edition"><i></i> ARCHIVO V20 <b>·</b> 1991—2011</span>
+    </header>
+
+    <main class="page-shell">
+      <section class="hero" aria-labelledby="hero-title">
+        <div class="book-stage" aria-hidden="true">
+          <div class="book-shadow"></div>
+          <div class="book">
+            <div class="book-pages"></div>
+            <div class="book-cover">
+              <span class="cover-rule cover-rule-top"></span>
+              <span class="cover-sigil">✥</span>
+              <span class="cover-title">Vampiro<br><small>La Mascarada</small></span>
+              <span class="cover-edition">20º ANIVERSARIO</span>
+              <span class="cover-rule cover-rule-bottom"></span>
+            </div>
+          </div>
+          <span class="orbit orbit-one"></span>
+          <span class="orbit orbit-two"></span>
+        </div>
+
+        <p class="eyebrow"><span></span> EL CONOCIMIENTO ES PODER <span></span></p>
+        <h1 id="hero-title">La noche <em>recuerda.</em></h1>
+        <p class="intro">Consulta los secretos de la Mascarada.<br class="desktop-break"> Un erudito de la Camarilla escucha.</p>
+
+        <form class="search-form" id="searchForm">
+          <label class="visually-hidden" for="question">Pregunta sobre Vampiro: La Mascarada V20</label>
+          <span class="search-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none"><circle cx="10.8" cy="10.8" r="6.7"></circle><path d="m16 16 4.2 4.2"></path></svg>
+          </span>
+          <input id="question" name="question" type="search" maxlength="700" autocomplete="off" placeholder="Pregunta por las reglas, los clanes, la noche…" required>
+          <button class="search-button" type="submit" aria-label="Buscar">
+            <span>Consultar</span>
+            <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M3.5 10h12m-5-5 5 5-5 5"></path></svg>
+          </button>
+        </form>
+        <div class="suggestions" aria-label="Preguntas sugeridas">
+          <span>PRUEBA CON</span>
+          <button type="button" data-question="¿Qué es la Camarilla?">La Camarilla</button>
+          <button type="button" data-question="¿Cómo funciona la reserva de sangre?">Reserva de sangre</button>
+          <button type="button" data-question="¿Qué disciplinas tiene el clan Tremere?">Disciplinas</button>
+        </div>
+      </section>
+
+      <section class="answer-area" id="answerArea" aria-live="polite" aria-atomic="false" hidden>
+        <div class="answer-divider"><span></span><i>✦</i><span></span></div>
+        <article class="answer-card" id="answerCard">
+          <div class="answer-kicker"><span class="answer-seal">✥</span><span>PALABRAS DEL ERUDITO</span><span class="answer-line"></span></div>
+          <div class="answer-copy" id="answerText"></div>
+          <details class="sources" id="sourcesDetails" hidden>
+            <summary><span>Fragmentos consultados</span><span class="source-count" id="sourceCount"></span></summary>
+            <div class="source-list" id="sourceList"></div>
+          </details>
+        </article>
+      </section>
+
+      <div class="loading-state" id="loadingState" role="status" hidden>
+        <span class="loading-sigil">✥</span>
+        <span>Consultando los archivos de la noche…</span>
+      </div>
+      <p class="error-message" id="errorMessage" role="alert" hidden></p>
+    </main>
+
+    <footer class="footer">
+      <span>VERITAS IN TENEBRIS</span>
+      <span class="footer-center"><i></i> LA CAMARILLA <i></i></span>
+      <span>EDICIÓN 20º ANIVERSARIO</span>
+    </footer>
+  </body>
+</html>
