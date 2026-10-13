@@ -3,11 +3,18 @@ const input = document.querySelector("#question");
 const button = form.querySelector("button[type=submit]");
 const answerArea = document.querySelector("#answerArea");
 const answerText = document.querySelector("#answerText");
-const loadingState = document.querySelector("#loadingState");
 const errorMessage = document.querySelector("#errorMessage");
 const sourcesDetails = document.querySelector("#sourcesDetails");
 const sourceList = document.querySelector("#sourceList");
 const sourceCount = document.querySelector("#sourceCount");
+const seekOverlay = document.querySelector("#seekOverlay");
+const seekFlip = document.querySelector("#seekFlip");
+const seekStack = document.querySelector("#seekStack");
+const seekProgress = document.querySelector("#seekProgress");
+const seekFall = document.querySelector("#seekFall");
+
+const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+const TOTAL_FOLIOS = 537;
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -17,8 +24,8 @@ form.addEventListener("submit", async (event) => {
   button.disabled = true;
   answerArea.hidden = true;
   errorMessage.hidden = true;
-  loadingState.hidden = false;
   sourcesDetails.open = false;
+  openSeek();
 
   try {
     const response = await fetch("/api/search", {
@@ -29,7 +36,7 @@ form.addEventListener("submit", async (event) => {
     const payload = await response.json();
     if (!response.ok) throw new Error(payload.error || "No se pudo consultar el archivo.");
 
-    answerText.textContent = payload.answer;
+    answerText.innerHTML = renderMarkdown(payload.answer);
     sourceList.replaceChildren();
     const sources = payload.sources || [];
     for (const source of sources) {
@@ -50,7 +57,7 @@ form.addEventListener("submit", async (event) => {
     errorMessage.textContent = error.message;
     errorMessage.hidden = false;
   } finally {
-    loadingState.hidden = true;
+    await closeSeek();
     button.disabled = false;
   }
 });
@@ -62,10 +69,162 @@ document.querySelectorAll("[data-question]").forEach((suggestion) => {
   });
 });
 
+// --- Respuesta en markdown -------------------------------------------------
+
+function escapeHTML(value) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function renderInline(value) {
+  return escapeHTML(value)
+    .replace(/`([^`]+)`/g, "<code>$1</code>")
+    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/(^|[\s(])\*([^*\n]+)\*/g, "$1<em>$2</em>")
+    .replace(/(^|[\s(])_([^_\n]+)_/g, "$1<em>$2</em>");
+}
+
+function renderMarkdown(text) {
+  const lines = String(text || "").replace(/\r\n?/g, "\n").split("\n");
+  const html = [];
+  let list = null;
+  let paragraph = [];
+
+  const closeList = () => {
+    if (!list) return;
+    html.push(`</${list}>`);
+    list = null;
+  };
+  const flushParagraph = () => {
+    if (!paragraph.length) return;
+    closeList();
+    html.push(`<p>${paragraph.map(renderInline).join("<br>")}</p>`);
+    paragraph = [];
+  };
+  const openList = (tag) => {
+    flushParagraph();
+    if (list === tag) return;
+    closeList();
+    html.push(`<${tag}>`);
+    list = tag;
+  };
+
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (!line) {
+      flushParagraph();
+      continue;
+    }
+    const heading = line.match(/^#{1,6}\s+(.*)$/);
+    if (heading) {
+      flushParagraph();
+      closeList();
+      html.push(`<h3>${renderInline(heading[1])}</h3>`);
+      continue;
+    }
+    const bullet = line.match(/^[-*•▪◦]\s+(.*)$/);
+    if (bullet) {
+      openList("ul");
+      html.push(`<li>${renderInline(bullet[1])}</li>`);
+      continue;
+    }
+    const numbered = line.match(/^\d+[.)]\s+(.*)$/);
+    if (numbered) {
+      openList("ol");
+      html.push(`<li>${renderInline(numbered[1])}</li>`);
+      continue;
+    }
+    closeList();
+    paragraph.push(line);
+  }
+  flushParagraph();
+  closeList();
+  return html.join("");
+}
+
+// --- El libro busca hoja por hoja ------------------------------------------
+
+const seek = { active: false, startedAt: 0, page: 1, flips: 0, flipTimer: 0, fallTimer: 0 };
+
+function openSeek() {
+  seek.active = true;
+  seek.startedAt = performance.now();
+  seek.page = 1;
+  seek.flips = 0;
+  seekOverlay.hidden = false;
+  seekOverlay.classList.remove("is-closing");
+  void seekOverlay.offsetWidth;
+  seekOverlay.classList.add("is-open");
+  document.body.classList.add("is-seeking");
+  updateSeekProgress();
+  seekStack.style.setProperty("--stack-scale", "1");
+  if (reducedMotion) return;
+  scheduleFlip(520);
+  seek.fallTimer = window.setInterval(spawnFallingPage, 780);
+  for (let i = 0; i < 3; i += 1) window.setTimeout(spawnFallingPage, 320 + i * 260);
+}
+
+function updateSeekProgress() {
+  seekProgress.textContent = `HOJA ${seek.page} / ${TOTAL_FOLIOS}`;
+}
+
+function scheduleFlip(delay) {
+  seek.flipTimer = window.setTimeout(runFlip, delay);
+}
+
+function runFlip() {
+  if (!seek.active) return;
+  seek.page = Math.min(TOTAL_FOLIOS, seek.page + 1 + Math.floor(Math.random() * 3));
+  seek.flips += 1;
+  updateSeekProgress();
+  seekStack.style.setProperty("--stack-scale", String(Math.max(0.62, 1 - seek.flips * 0.05)));
+  const duration = 185 + Math.random() * 165;
+  seekFlip.style.setProperty("--flip-duration", `${Math.round(duration)}ms`);
+  seekFlip.classList.remove("is-flipping");
+  void seekFlip.offsetWidth;
+  seekFlip.classList.add("is-flipping");
+  seek.flipTimer = window.setTimeout(() => {
+    seekFlip.classList.remove("is-flipping");
+    scheduleFlip(35 + Math.random() * 130);
+  }, duration);
+}
+
+function spawnFallingPage() {
+  if (!seek.active || seekFall.childElementCount >= 7) return;
+  const page = document.createElement("span");
+  page.className = "falling-page";
+  page.style.left = `${8 + Math.random() * 82}%`;
+  page.style.setProperty("--fall-x", `${Math.round((Math.random() * 2 - 1) * 130)}px`);
+  page.style.setProperty("--fall-spin", `${Math.round((Math.random() * 2 - 1) * 320)}deg`);
+  page.style.setProperty("--fall-duration", `${(3.4 + Math.random() * 2.8).toFixed(2)}s`);
+  page.style.setProperty("--fall-delay", `${(Math.random() * 0.35).toFixed(2)}s`);
+  page.addEventListener("animationend", () => page.remove(), { once: true });
+  seekFall.append(page);
+}
+
+async function closeSeek() {
+  clearTimeout(seek.flipTimer);
+  clearInterval(seek.fallTimer);
+  seekFlip.classList.remove("is-flipping");
+  const elapsed = performance.now() - seek.startedAt;
+  const remaining = 1500 - elapsed;
+  if (remaining > 0) await new Promise((resolve) => setTimeout(resolve, remaining));
+  seekOverlay.classList.remove("is-open");
+  seekOverlay.classList.add("is-closing");
+  await new Promise((resolve) => setTimeout(resolve, 480));
+  seekOverlay.classList.remove("is-closing");
+  seekOverlay.hidden = true;
+  document.body.classList.remove("is-seeking");
+  seekFall.replaceChildren();
+  seek.active = false;
+}
+
 // A layered, slow-moving blood-red sea drawn without images or dependencies.
 const canvas = document.querySelector("#bloodSea");
 const context = canvas.getContext("2d", { alpha: true });
-const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 let seaWidth = 0;
 let seaHeight = 0;
 let seaFrame = 0;

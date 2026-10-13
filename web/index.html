@@ -78,10 +78,6 @@
         </article>
       </section>
 
-      <div class="loading-state" id="loadingState" role="status" hidden>
-        <span class="loading-sigil">✥</span>
-        <span>Consultando los archivos de la noche…</span>
-      </div>
       <p class="error-message" id="errorMessage" role="alert" hidden></p>
     </main>
 
@@ -90,5 +86,25 @@
       <span class="footer-center"><i></i> LA CAMARILLA <i></i></span>
       <span>EDICIÓN 20º ANIVERSARIO</span>
     </footer>
+
+    <div class="seek-overlay" id="seekOverlay" role="status" hidden>
+      <div class="seek-fall" id="seekFall" aria-hidden="true"></div>
+      <div class="seek-stage">
+        <div class="seek-book" aria-hidden="true">
+          <div class="seek-side seek-side-left">
+            <span class="seek-rubric"></span>
+            <span class="seek-lines"></span>
+            <span class="seek-folio"></span>
+          </div>
+          <div class="seek-spine"></div>
+          <div class="seek-side seek-side-right" id="seekStack">
+            <span class="seek-edge"></span>
+          </div>
+          <span class="seek-flip" id="seekFlip"></span>
+        </div>
+        <p class="seek-caption"><span class="seek-sigil">✥</span> Consultando los archivos de la noche…</p>
+        <p class="seek-progress" id="seekProgress">HOJA 1 / 537</p>
+      </div>
+    </div>
   </body>
 </html>
