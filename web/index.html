@@ -1,16 +1,22 @@
 <!doctype html>
 <html lang="es">
   <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="#100b0d">
-    <meta name="description" content="Un erudito de la Camarilla responde tus preguntas sobre Vampiro: La Mascarada V20.">
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#100b0d" />
+    <meta
+      name="description"
+      content="Un erudito de la Camarilla responde tus preguntas sobre Vampiro: La Mascarada V20."
+    />
     <title>Codex — El saber de la noche</title>
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/app.css">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/app.css" />
     <script src="/app.js" defer></script>
   </head>
   <body>
@@ -36,7 +42,9 @@
               <div class="book-cover">
                 <span class="cover-rule cover-rule-top"></span>
                 <span class="cover-sigil">✥</span>
-                <span class="cover-title">Vampiro<br><small>La Mascarada</small></span>
+                <span class="cover-title"
+                  >Vampiro<br /><small>La Mascarada</small></span
+                >
                 <span class="cover-edition">20º ANIVERSARIO</span>
                 <span class="cover-rule cover-rule-bottom"></span>
               </div>
@@ -45,19 +53,39 @@
             <span class="orbit orbit-two"></span>
           </div>
 
-          <p class="eyebrow"><span></span> EL CONOCIMIENTO ES PODER <span></span></p>
+          <p class="eyebrow">
+            <span></span> EL CONOCIMIENTO ES PODER <span></span>
+          </p>
           <h1>La noche <em>recuerda.</em></h1>
-          <p class="intro">Consulta los secretos de la Mascarada.<br>Un erudito de la Camarilla escucha.</p>
+          <p class="intro">
+            Consulta los secretos de la Mascarada.<br />Un erudito de la
+            Camarilla escucha.
+          </p>
 
           <form class="search-form" id="searchForm">
-            <label class="visually-hidden" for="question">Pregunta sobre Vampiro: La Mascarada V20</label>
+            <label class="visually-hidden" for="question"
+              >Pregunta sobre Vampiro: La Mascarada V20</label
+            >
             <span class="search-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none"><circle cx="10.8" cy="10.8" r="6.7"></circle><path d="m16 16 4.2 4.2"></path></svg>
+              <svg viewBox="0 0 24 24" fill="none">
+                <circle cx="10.8" cy="10.8" r="6.7"></circle>
+                <path d="m16 16 4.2 4.2"></path>
+              </svg>
             </span>
-            <input id="question" name="question" type="search" maxlength="700" autocomplete="off" placeholder="Pregunta por las reglas, los clanes, la noche…" required>
+            <input
+              id="question"
+              name="question"
+              type="search"
+              maxlength="700"
+              autocomplete="off"
+              placeholder="Pregunta por las reglas, los clanes, la noche…"
+              required
+            />
             <button class="search-button" type="submit" aria-label="Buscar">
               <span>Consultar</span>
-              <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M3.5 10h12m-5-5 5 5-5 5"></path></svg>
+              <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                <path d="M3.5 10h12m-5-5 5 5-5 5"></path>
+              </svg>
             </button>
           </form>
 
@@ -79,7 +107,10 @@
                   <div class="seek-sheets" id="seekSheets"></div>
                 </div>
               </div>
-              <p class="seek-caption"><span class="seek-sigil">✥</span> Consultando los archivos de la noche…</p>
+              <p class="seek-caption">
+                <span class="seek-sigil">✥</span> Consultando los archivos de la
+                noche…
+              </p>
               <p class="seek-progress" id="seekProgress">HOJA 1 / 537</p>
             </div>
           </div>
@@ -96,7 +127,10 @@
         <div class="script-feed" id="scriptFeed" aria-live="polite"></div>
         <div class="script-empty" id="scriptEmpty">
           <span class="script-empty-sigil" aria-hidden="true">✒</span>
-          <p>Pregunta al erudito y su respuesta se escribirá aquí,<br>letra a letra, mientras el archivo se hojea.</p>
+          <p>
+            Pregunta al erudito y su respuesta se escribirá aquí,<br />letra a
+            letra, mientras el archivo se hojea.
+          </p>
         </div>
         <p class="error-message" id="errorMessage" role="alert" hidden></p>
       </section>
@@ -108,4 +142,10 @@
       <span>EDICIÓN 20º ANIVERSARIO</span>
     </footer>
   </body>
+  <script
+    defer
+    data-base-path="https://pochland.zip/api/_temps"
+    data-ingest-key="pa_4f24c4e9d5cbff1efb4ab7c301085fa33c0a07b6b21cc48ba7016e586a24666e"
+    src="/temps.min.js"
+  ></script>
 </html>
