@@ -37,7 +37,7 @@ const (
 	minSearchableRunes = 60
 )
 
-//go:embed web/index.html web/app.css web/app.js web/favicon.svg
+//go:embed web/index.html web/app.css web/app.js web/favicon.svg web/temps.min.js
 var web embed.FS
 
 var (
@@ -169,6 +169,10 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	analytic, err := web.ReadFile("web/temps.min.js")
+	if err != nil {
+		log.Fatal(err)
+	}
 	favicon, err := web.ReadFile("web/favicon.svg")
 	if err != nil {
 		log.Fatal(err)
@@ -191,6 +195,11 @@ func main() {
 		c.Type("js", "utf-8")
 		return c.Send(script)
 	})
+	app.Get("/temps.min.js", func(c fiber.Ctx) error {
+		c.Type("js", "utf-8")
+		return c.Send(analytic)
+	})
+
 	app.Get("/api/health", func(c fiber.Ctx) error {
 		if !state.ready.Load() {
 			return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"status": "indexing", "documents": 0})
