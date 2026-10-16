@@ -299,6 +299,54 @@ function streamEntry(entry, fullText) {
   });
 }
 
+async function streamAnswer(entry, response) {
+  const copy = entry.querySelector(".entry-copy");
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  const handleEvent = async (event) => {
+    if (event.type === "sources") {
+      fillSources(entry, event.sources || []);
+      entry.classList.remove("is-pending");
+      await closeSeek();
+    } else if (event.type === "delta" && event.text) {
+      answer += event.text;
+      entry.classList.remove("is-pending");
+      if (seek.active) await closeSeek();
+      copy.innerHTML =
+        renderMarkdown(answer) +
+        (reducedMotion ? "" : '<span class="entry-caret" aria-hidden="true">✒</span>');
+    } else if (event.type === "error") {
+      throw new Error(event.message || "La respuesta del erudito falló.");
+    }
+  };
+  let answer = "";
+  let buffer = "";
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    let boundary;
+    while ((boundary = buffer.indexOf("\n\n")) >= 0) {
+      const raw = buffer.slice(0, boundary);
+      buffer = buffer.slice(boundary + 2);
+      for (const line of raw.split("\n")) {
+        if (!line.startsWith("data:")) continue;
+        const payload = line.slice(5).trim();
+        if (!payload) continue;
+        let event;
+        try {
+          event = JSON.parse(payload);
+        } catch {
+          continue;
+        }
+        await handleEvent(event);
+      }
+    }
+  }
+  if (!answer) throw new Error("El erudito no devolvió ninguna respuesta.");
+  copy.innerHTML = renderMarkdown(answer);
+}
+
 async function runQuery(question) {
   const entry = buildEntry(question);
   const copy = entry.querySelector(".entry-copy");
@@ -311,11 +359,19 @@ async function runQuery(question) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ question }),
     });
-    const payload = await response.json();
-    if (!response.ok) throw new Error(payload.error || "No se pudo consultar el archivo.");
-    await closeSeek();
-    await streamEntry(entry, payload.answer);
-    fillSources(entry, payload.sources || []);
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}));
+      throw new Error(payload.error || "No se pudo consultar el archivo.");
+    }
+    const contentType = response.headers.get("content-type") || "";
+    if (contentType.includes("text/event-stream")) {
+      await streamAnswer(entry, response);
+    } else {
+      const payload = await response.json();
+      await closeSeek();
+      await streamEntry(entry, payload.answer);
+      fillSources(entry, payload.sources || []);
+    }
   } catch (error) {
     await closeSeek();
     entry.classList.remove("is-pending");

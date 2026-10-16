@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"database/sql"
@@ -28,7 +29,7 @@ import (
 )
 
 const (
-	defaultModel       = "mradermacher/Qwen-3-VL-8B-Instruct-heretic-GGUF:Q4_K_M"
+	defaultModel       = "unsloth/Qwen3.5-4B-GGUF:Q4_K_M"
 	defaultEmbedder    = "Qwen/Qwen3-Embedding-0.6B-GGUF:F16"
 	collectionName     = "vampiro-v20"
 	maxQuestionChars   = 700
@@ -121,11 +122,15 @@ type orderedSection struct {
 }
 
 type chatRequest struct {
-	Model       string        `json:"model"`
-	Messages    []chatMessage `json:"messages"`
-	Temperature float64       `json:"temperature"`
-	MaxTokens   int           `json:"max_tokens"`
+	Model              string         `json:"model"`
+	Messages           []chatMessage  `json:"messages"`
+	Temperature        float64        `json:"temperature"`
+	MaxTokens          int            `json:"max_tokens"`
+	Stream             bool           `json:"stream,omitempty"`
+	ChatTemplateKwargs map[string]any `json:"chat_template_kwargs,omitempty"`
 }
+
+var noThinking = map[string]any{"enable_thinking": false}
 
 type chatMessage struct {
 	Role    string `json:"role"`
@@ -135,6 +140,14 @@ type chatMessage struct {
 type chatResponse struct {
 	Choices []struct {
 		Message chatMessage `json:"message"`
+	} `json:"choices"`
+}
+
+type chatStreamResponse struct {
+	Choices []struct {
+		Delta struct {
+			Content string `json:"content"`
+		} `json:"delta"`
 	} `json:"choices"`
 }
 
@@ -528,12 +541,45 @@ func (s *appState) search(c fiber.Ctx) error {
 	vectorContext, vectorSources := buildSearchContextWithin(results, listRequest && pathContext != "", s.sourceDocuments, s.documentPositions, s.config.minSimilarity, remainingContext)
 	manualContext += vectorContext
 	sources = append(sources, vectorSources...)
-	answer, err := s.complete(ctx, question, manualContext)
+	llmCtx, llmCancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Minute)
+	upstream, err := s.startComplete(llmCtx, question, manualContext)
 	if err != nil {
+		llmCancel()
 		log.Printf("Error del modelo local: %v", err)
 		return c.Status(fiber.StatusBadGateway).JSON(fiber.Map{"error": "El erudito no está disponible ahora. Comprueba el modelo local."})
 	}
-	return c.JSON(searchResponse{Answer: answer, Sources: sources})
+	c.Set(fiber.HeaderContentType, "text/event-stream")
+	c.Set(fiber.HeaderCacheControl, "no-cache")
+	return c.SendStreamWriter(func(w *bufio.Writer) {
+		defer llmCancel()
+		writeEvent := func(value any) bool {
+			encoded, err := json.Marshal(value)
+			if err != nil {
+				return false
+			}
+			if _, err := fmt.Fprintf(w, "data: %s\n\n", encoded); err != nil {
+				return false
+			}
+			return w.Flush() == nil
+		}
+		writeEvent(fiber.Map{"type": "sources", "sources": sources})
+		sent := false
+		err := pumpComplete(upstream, func(text string) error {
+			if !writeEvent(fiber.Map{"type": "delta", "text": text}) {
+				return errors.New("no se pudo escribir en la respuesta")
+			}
+			sent = true
+			return nil
+		})
+		switch {
+		case err != nil && !sent:
+			writeEvent(fiber.Map{"type": "error", "message": "El erudito no está disponible ahora. Comprueba el modelo local."})
+		case err != nil:
+			writeEvent(fiber.Map{"type": "error", "message": "La respuesta del erudito se interrumpió a mitad de camino."})
+		default:
+			writeEvent(fiber.Map{"type": "done"})
+		}
+	})
 }
 
 func asksForList(question string) bool {
@@ -1506,7 +1552,7 @@ func normalizeWords(value string) string {
 	return strings.TrimSpace(wordPattern.ReplaceAllString(value, " "))
 }
 
-func (s *appState) complete(ctx context.Context, question, manualContext string) (string, error) {
+func (s *appState) startComplete(ctx context.Context, question, manualContext string) (*http.Response, error) {
 	maxTokens := 500
 	if strings.Contains(normalizeWords(manualContext), "catalogo completo de sendas") {
 		maxTokens = 900
@@ -1537,15 +1583,17 @@ Fragmentos recuperados del manual:
 			{Role: "system", Content: systemPrompt},
 			{Role: "user", Content: question},
 		},
-		Temperature: 0.05,
-		MaxTokens:   maxTokens,
+		Temperature:        0.05,
+		MaxTokens:          maxTokens,
+		Stream:             true,
+		ChatTemplateKwargs: noThinking,
 	})
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.config.llmURL+"/chat/completions", bytes.NewReader(body))
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	if s.config.apiKey != "" {
@@ -1553,21 +1601,44 @@ Fragmentos recuperados del manual:
 	}
 	response, err := s.client.Do(req)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	defer response.Body.Close()
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		defer response.Body.Close()
 		message, _ := io.ReadAll(io.LimitReader(response.Body, 2048))
-		return "", fmt.Errorf("endpoint del modelo respondió %s: %s", response.Status, strings.TrimSpace(string(message)))
+		return nil, fmt.Errorf("endpoint del modelo respondió %s: %s", response.Status, strings.TrimSpace(string(message)))
 	}
-	var result chatResponse
-	if err := json.NewDecoder(response.Body).Decode(&result); err != nil {
-		return "", err
+	return response, nil
+}
+
+func pumpComplete(response *http.Response, emit func(string) error) error {
+	defer response.Body.Close()
+	reader := bufio.NewReader(response.Body)
+	for {
+		line, err := reader.ReadString('\n')
+		if line = strings.TrimSpace(line); line != "" {
+			if strings.HasPrefix(line, "data:") {
+				payload := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
+				if payload == "[DONE]" {
+					return nil
+				}
+				var chunk chatStreamResponse
+				if err := json.Unmarshal([]byte(payload), &chunk); err == nil && len(chunk.Choices) > 0 {
+					if text := chunk.Choices[0].Delta.Content; text != "" {
+						if emitErr := emit(text); emitErr != nil {
+							return emitErr
+						}
+					}
+				}
+			}
+		}
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				return nil
+			}
+			return err
+		}
 	}
-	if len(result.Choices) == 0 || strings.TrimSpace(result.Choices[0].Message.Content) == "" {
-		return "", errors.New("el modelo devolvió una respuesta vacía")
-	}
-	return strings.TrimSpace(result.Choices[0].Message.Content), nil
 }
 
 func (s *appState) rewriteSearchQuery(ctx context.Context, question string) (string, error) {
@@ -1577,8 +1648,9 @@ func (s *appState) rewriteSearchQuery(ctx context.Context, question string) (str
 			{Role: "system", Content: `Reformula la pregunta únicamente para buscar los pasajes más pertinentes del manual de Vampiro: La Mascarada V20. No respondas ni inventes reglas. Conserva la pregunta original y añade vocabulario y posibles encabezados del manual. Si la pregunta describe un concepto con palabras coloquiales, busca también el término oficial que probablemente lo nombre. Para preguntas de catálogo o listas, incluye términos de índice y categorías para recuperar más de una entrada. Ejemplos de expansión de búsqueda, no respuestas: "recordar algo que ya sé" -> "Atributos Mentales, Inteligencia, memoria, hechos y conocimientos"; "senda del agua" -> "Poder de Neptuno, agua estancada"; "poderes sobre plantas" -> "Senda Verde, materia vegetal". Devuelve sólo una consulta breve, sin explicación.`},
 			{Role: "user", Content: question},
 		},
-		Temperature: 0,
-		MaxTokens:   100,
+		Temperature:        0,
+		MaxTokens:          100,
+		ChatTemplateKwargs: noThinking,
 	})
 	if err != nil {
 		return "", err

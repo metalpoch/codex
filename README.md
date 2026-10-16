@@ -51,13 +51,15 @@ Las tiradas, las listas de Poderes por puntuación y los catálogos de Sendas se
 | `CHROMA_DB_PATH` | `./v20_db/chroma.sqlite3` | Base ChromaDB de origen |
 | `CHROMEM_DB_PATH` | `./codex_data/chromem` | Colección local de chromem-go |
 | `LLM_BASE_URL` | `http://192.168.100.100:8080/v1` | Endpoint de chat |
-| `LLM_MODEL` | `mradermacher/Qwen-3-VL-8B-Instruct-heretic-GGUF:Q4_K_M` | Modelo de respuesta |
+| `LLM_MODEL` | `unsloth/Qwen3.5-4B-GGUF:Q4_K_M` | Modelo de respuesta |
 | `EMBEDDING_BASE_URL` | `http://192.168.100.100:8080/v1` | Endpoint de embeddings |
 | `EMBEDDING_MODEL` | `Qwen/Qwen3-Embedding-0.6B-GGUF:F16` | Modelo de embeddings |
 | `LLM_API_KEY` | `no-key-required` | Clave opcional de chat |
 | `EMBEDDING_API_KEY` | valor de `LLM_API_KEY` | Clave opcional de embeddings |
 
 El endpoint de embeddings debe ser compatible con OpenAI y servir el modelo con el preset `embedding=true` y `pooling=last`.
+
+El endpoint de chat debe aplicar el motor Jinja del chat template (viene activado por defecto en `llama-server`): la app envía `chat_template_kwargs` con `enable_thinking: false` en cada petición para obtener respuestas directas, sin razonamiento intermedio. Ese desactivado es por request, así que otros clientes del mismo servidor siguen recibiendo thinking si lo piden.
 
 ## API de Codex
 
