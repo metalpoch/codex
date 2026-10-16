@@ -41,7 +41,15 @@ Los vectores se calculan con el modelo indicado en `EMBEDDING_MODEL`: usa el mis
 
 ## Cómo responde Codex
 
-Codex está orientado a consultar mecánicas en mesa: reservas y dificultades, costes, efectos, Poderes de Disciplinas por puntos, Sendas y rituales. Las consultas sencillas de tiradas y listas se resuelven leyendo el manual directamente; las explicaciones detalladas usan el modelo con los fragmentos recuperados como fuente. Puede organizar respuestas por nivel y explicar cómo aplicar una regla sin exigir un Poder concreto para toda consulta general. Cuando un dato no aparece en los fragmentos, señala qué falta y conserva la información que sí está respaldada.
+Codex está orientado a consultar mecánicas en mesa: reservas y dificultades, costes, efectos, Poderes de Disciplinas por puntos, Sendas y rituales. Toda pregunta —tirada, lista, comparación o explicación— se responde con el modelo, sin atajos que elijan la regla por cuenta propia: así una consulta nueva no cae en un caso previsto ni devuelve una respuesta prefabricada.
+
+La única información que el backend produce por su cuenta es estructural y procede del texto del manual: el encabezado de cada fragmento (capítulo, sección y página) y las etiquetas de nivel que el propio manual escribe antes de cada Poder («Auspex 5 o más»). No se deducen niveles contando la posición de los Poderes: si la etiqueta no está en el pasaje, el Poder se cita como «nivel no indicado».
+
+La recuperación combina la similitud semántica con las coincidencias de términos poco frecuentes del manual, prefiere la sección que nombra la pregunta, agrupa cada coincidencia con sus continuaciones y favorece el capítulo donde se concentra el tema. Las palabras genéricas del juego —«senda», «disciplina», «poder», «ritual»— no sirven para elegir un pasaje. El presupuesto de contexto es más amplio para listas y comparaciones que para una duda concreta.
+
+El prompt (en `prompts.go`) describe el comportamiento y es idéntico para toda pregunta: no contiene reglas, nombres de Poderes ni ejemplos de preguntas concretas. Los pasajes recuperados llegan en el mensaje del usuario, numerados para poder citarlos como `[n]`.
+
+Cuando el manual permite decidir según las circunstancias, la respuesta conserva ese margen. Si faltan datos o hay discrepancias entre fragmentos, se dice en lugar de inventar.
 
 ## Configuración de Codex
 
