@@ -41,7 +41,7 @@ Los vectores se calculan con el modelo indicado en `EMBEDDING_MODEL`: usa el mis
 
 ## Cómo responde Codex
 
-Las tiradas, las listas de Poderes por puntuación y los catálogos de Sendas se resuelven leyendo el manual directamente, sin dejar que el modelo rellene huecos. Cuando un dato no aparece en los fragmentos, Codex lo dice en lugar de inventarlo.
+Codex está orientado a consultar mecánicas en mesa: reservas y dificultades, costes, efectos, Poderes de Disciplinas por puntos, Sendas y rituales. Las consultas sencillas de tiradas y listas se resuelven leyendo el manual directamente; las explicaciones detalladas usan el modelo con los fragmentos recuperados como fuente. Puede organizar respuestas por nivel y explicar cómo aplicar una regla sin exigir un Poder concreto para toda consulta general. Cuando un dato no aparece en los fragmentos, señala qué falta y conserva la información que sí está respaldada.
 
 ## Configuración de Codex
 

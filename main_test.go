@@ -106,6 +106,32 @@ func TestDiceQuestionsRetrieveMoreRuleContext(t *testing.T) {
 	}
 }
 
+func TestDetailedMechanicsQuestionsKeepFullRuleExplanation(t *testing.T) {
+	for _, question := range []string{
+		"¿Qué poderes de Auspex puedo usar con 2 puntos y qué hace cada uno?",
+		"¿Qué puedo lanzar con 2 puntos de Taumaturgia y cuál es su coste?",
+		"¿Qué tirada requiere Percepción del Aura y cuánto dura el efecto?",
+		"Explica los rituales de nivel 1 con sus tiradas y requisitos.",
+		"¿Cómo funciona Potencia?",
+		"¿Qué poderes tiene Dominación y qué dados tiro para cada uno?",
+	} {
+		if !asksForMechanicsDetails(question) {
+			t.Errorf("detailed question would be reduced to a short direct answer: %q", question)
+		}
+		if got := searchResultCount(question, 20); got != 12 {
+			t.Errorf("detailed question retrieves %d fragments, want 12: %q", got, question)
+		}
+	}
+	for _, question := range []string{
+		"¿Qué puedo lanzar con 2 puntos en la Senda de la Sangre?",
+		"¿Qué tirada necesito para ver las auras?",
+	} {
+		if asksForMechanicsDetails(question) {
+			t.Errorf("simple question should keep its direct manual answer: %q", question)
+		}
+	}
+}
+
 func TestListSearchSplitsIndependentTopics(t *testing.T) {
 	queries := alternativeSearchQueries("¿Existe una senda del agua y otra de las plantas para los Tremere?")
 	if len(queries) != 2 || !strings.Contains(normalizeWords(strings.Join(queries, " ")), "agua") || !strings.Contains(normalizeWords(strings.Join(queries, " ")), "plantas") {
