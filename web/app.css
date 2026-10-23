@@ -412,7 +412,6 @@ body.is-seeking { overflow: hidden; }
 .seek-doodle.is-red { color: rgba(142, 32, 37, .48); }
 .seek-stain { position: absolute; border-radius: 50%; filter: blur(7px); }
 .seek-col { position: absolute; top: 0; height: 100%; }
-.seek-folio { position: absolute; bottom: 5%; left: 0; right: 0; color: rgba(88, 68, 52, .45); font-family: var(--serif); font-size: 11px; letter-spacing: .12em; text-align: center; }
 
 .seek-stack {
   position: absolute;
@@ -511,7 +510,8 @@ body.is-seeking { overflow: hidden; }
 
 .seek-caption { display: flex; align-items: center; gap: 11px; margin: 30px 0 0; color: #c4b1a0; font-family: var(--serif); font-size: 19px; }
 .seek-sigil { color: #bd9b66; font-size: 20px; animation: sigil-pulse 1.4s ease-in-out infinite; }
-.seek-progress { margin: 10px 0 0; color: #8c7a68; font-size: 8px; letter-spacing: .26em; font-variant-numeric: tabular-nums; }
+.seek-quip { min-height: 1.3em; margin: 11px 0 0; padding: 0 14px; color: #a08a74; font-family: var(--serif); font-size: 14px; font-style: italic; letter-spacing: .03em; text-align: center; opacity: 0; transform: translateY(5px); transition: opacity .3s ease, transform .3s ease; }
+.seek-quip.is-visible { opacity: 1; transform: translateY(0); }
 
 @keyframes book-drift { 0%, 100% { transform: rotateY(-28deg) rotateX(8deg) rotateZ(-7deg) translateY(0); } 50% { transform: rotateY(-23deg) rotateX(11deg) rotateZ(-5deg) translateY(-5px); } }
 @keyframes book-arrive { from { opacity: 0; transform: translateY(13px) scale(.94); } to { opacity: 1; transform: translateY(0) scale(1); } }
@@ -529,7 +529,7 @@ body.is-seeking { overflow: hidden; }
   }
   .seek-book { width: min(30vw, 320px); }
   .seek-caption { margin-top: 22px; font-size: 16px; }
-  .seek-progress { margin-top: 8px; }
+  .seek-quip { margin-top: 8px; font-size: 12.5px; }
 }
 
 /* --- Móvil: columna única -------------------------------------------------- */
@@ -558,6 +558,7 @@ body.is-seeking { overflow: hidden; }
   .entry-copy { font-size: 19.5px; }
   .seek-book { width: min(88vw, 340px); }
   .seek-caption { margin-top: 23px; font-size: 16px; }
+  .seek-quip { margin-top: 9px; font-size: 13px; }
   .footer { min-height: 62px; font-size: 6px; letter-spacing: .1em; }
   .footer-center { gap: 5px; }
   .footer-center i { width: 3px; height: 3px; }

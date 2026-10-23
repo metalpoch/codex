@@ -7,7 +7,7 @@ const scriptEmpty = document.querySelector("#scriptEmpty");
 const scriptCount = document.querySelector("#scriptCount");
 const seekOverlay = document.querySelector("#seekOverlay");
 const seekStack = document.querySelector("#seekStack");
-const seekProgress = document.querySelector("#seekProgress");
+const seekQuip = document.querySelector("#seekQuip");
 const seekFall = document.querySelector("#seekFall");
 const seekSheets = document.querySelector("#seekSheets");
 const seekTurnShadow = document.querySelector("#seekTurnShadow");
@@ -15,7 +15,6 @@ const seekBodyLeft = document.querySelector("#seekBodyLeft");
 const seekBodyRight = document.querySelector("#seekBodyRight");
 
 const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-const TOTAL_FOLIOS = 537;
 const SVG_NS = "http://www.w3.org/2000/svg";
 
 const INK_GLYPHS = ["ᚠ", "ᚢ", "ᚦ", "ᚨ", "ᚱ", "ᚲ", "ᚷ", "ᚹ", "ᚺ", "ᚾ", "ᛁ", "ᛃ", "ᛇ", "ᛈ", "ᛉ", "ᛊ", "ᛏ", "ᛒ", "ᛖ", "ᛗ", "ᛚ", "ᛞ", "ᛟ", "✶", "☽", "✥", "⚚", "☤"];
@@ -36,6 +35,15 @@ const DOODLES = {
   horns: '<path d="M8 30c0-10 4-18 8-22M32 30c0-10-4-18-8-22M12 26c5-4 11-4 16 0"/>',
   chalice: '<path d="M12 8h16c0 8-3 12-8 13-5-1-8-5-8-13ZM20 21v9M14 32h12"/>',
 };
+
+const SEEK_QUIPS = [
+  "Buscando la página que Kael se quería fumar",
+  "Quitando la grasa de una empanada de mechada",
+  "Buscando la receta del porro de Kael",
+  "Preguntando a la Camarilla quién dejó migas en el tomo",
+  "Separando las hojas que huelen a mechada",
+  "Consultando el índice de recetas de la noche",
+];
 
 function randomBetween(min, max) {
   return min + Math.random() * (max - min);
@@ -221,7 +229,6 @@ function randomizePage(body) {
     stain.style.left = `${randomBetween(8, 60).toFixed(1)}%`;
     body.append(stain);
   }
-  addPos("seek-folio", {}).textContent = String(1 + Math.floor(Math.random() * TOTAL_FOLIOS));
 }
 
 // --- Scriptorium: la respuesta se escribe -----------------------------------
@@ -306,8 +313,6 @@ async function streamAnswer(entry, response) {
   const handleEvent = async (event) => {
     if (event.type === "sources") {
       fillSources(entry, event.sources || []);
-      entry.classList.remove("is-pending");
-      await closeSeek();
     } else if (event.type === "delta" && event.text) {
       answer += event.text;
       entry.classList.remove("is-pending");
@@ -470,7 +475,7 @@ function renderMarkdown(text) {
 // --- El libro busca, hoja tras hoja -----------------------------------------
 
 const SHEET_COUNT = 5;
-const seek = { active: false, startedAt: 0, page: 1, turns: 0, cursor: 0, turnTimer: 0, fallTimer: 0 };
+const seek = { active: false, startedAt: 0, turns: 0, cursor: 0, turnTimer: 0, fallTimer: 0, quipTimer: 0, quipIndex: 0 };
 const sheets = [];
 
 function ensureSheets() {
@@ -500,17 +505,21 @@ function ensureSheets() {
 function openSeek() {
   seek.active = true;
   seek.startedAt = performance.now();
-  seek.page = 1;
   seek.turns = 0;
   seekOverlay.hidden = false;
   seekOverlay.classList.remove("is-closing");
   void seekOverlay.offsetWidth;
   seekOverlay.classList.add("is-open");
   document.body.classList.add("is-seeking");
-  updateSeekProgress();
   seekStack.style.setProperty("--stack", "1");
   randomizePage(seekBodyLeft);
   randomizePage(seekBodyRight);
+  seek.quipIndex = Math.floor(Math.random() * SEEK_QUIPS.length);
+  seekQuip.textContent = SEEK_QUIPS[seek.quipIndex];
+  seekQuip.classList.remove("is-visible");
+  void seekQuip.offsetWidth;
+  seekQuip.classList.add("is-visible");
+  seek.quipTimer = window.setTimeout(rotateQuip, 2800);
   if (reducedMotion) return;
   ensureSheets();
   seek.turnTimer = window.setTimeout(runTurn, 480);
@@ -518,17 +527,23 @@ function openSeek() {
   for (let i = 0; i < 3; i += 1) window.setTimeout(spawnFallingPage, 340 + i * 280);
 }
 
-function updateSeekProgress() {
-  seekProgress.textContent = `HOJA ${seek.page} / ${TOTAL_FOLIOS}`;
+function rotateQuip() {
+  if (!seek.active) return;
+  seek.quipIndex = (seek.quipIndex + 1) % SEEK_QUIPS.length;
+  seekQuip.classList.remove("is-visible");
+  seek.quipTimer = window.setTimeout(() => {
+    if (!seek.active) return;
+    seekQuip.textContent = SEEK_QUIPS[seek.quipIndex];
+    seekQuip.classList.add("is-visible");
+    seek.quipTimer = window.setTimeout(rotateQuip, 2800);
+  }, 320);
 }
 
 function runTurn() {
   if (!seek.active) return;
   const sheet = sheets[seek.cursor % SHEET_COUNT];
   seek.cursor += 1;
-  seek.page = Math.min(TOTAL_FOLIOS, seek.page + 1 + Math.floor(Math.random() * 3));
   seek.turns += 1;
-  updateSeekProgress();
   seekStack.style.setProperty("--stack", String(Math.max(0.06, 1 - seek.turns * 0.05)));
   sheet.body.innerHTML = seekBodyRight.innerHTML;
   const durationMs = `${Math.round(250 + Math.random() * 120)}ms`;
@@ -560,6 +575,8 @@ function spawnFallingPage() {
 async function closeSeek() {
   clearTimeout(seek.turnTimer);
   clearInterval(seek.fallTimer);
+  clearTimeout(seek.quipTimer);
+  seekQuip.classList.remove("is-visible");
   for (const sheet of sheets) sheet.turn.classList.remove("is-turning");
   seekTurnShadow.classList.remove("is-turning");
   const elapsed = performance.now() - seek.startedAt;
@@ -572,6 +589,7 @@ async function closeSeek() {
   seekOverlay.hidden = true;
   document.body.classList.remove("is-seeking");
   seekFall.replaceChildren();
+  seekQuip.textContent = "";
   seek.active = false;
 }
 
